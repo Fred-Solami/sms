@@ -67,16 +67,16 @@ async function handleSend(api: MessageSubmissionAPI, args: string[]) {
   const result = await api.submitMessage(from, to, message);
 
   if (result.success) {
-    console.log('✓ Message submitted successfully');
+    console.log('Message submitted successfully');
     console.log(`Message ID: ${result.messageId}`);
   } else {
-    console.error('✗ Message submission failed');
+    console.error('Message submission failed');
     console.error(`Error: ${result.errorMessage}`);
     if (result.validationErrors) {
       console.error('Validation errors:');
       result.validationErrors.forEach((err) => console.error(`  - ${err}`));
     }
-    process.exit(1);
+    throw new Error('submission failed');
   }
 }
 
@@ -87,20 +87,21 @@ async function handleStatus(store: MessageStore, queue: MessageQueue) {
 
   // Database health
   const dbHealthy = await store.healthCheck();
-  console.log(`Database: ${dbHealthy ? '✓ Healthy' : '✗ Unhealthy'}`);
+  console.log(`Database: ${dbHealthy ? 'healthy' : 'UNHEALTHY'}`);
 
-  // Queue status
-  console.log(`Queue size: ${queue.size()}`);
-  console.log(`Queue ready: ${queue.readyCount()}`);
-  console.log(`Queue healthy: ${queue.isHealthy() ? '✓ Yes' : '✗ No'}`);
+  // The CLI creates its own in-process queue — it has no connection to the
+  // running service's queue, so these numbers reflect only this CLI session.
+  console.log(`Queue (this process only): ${queue.size()} items, healthy: ${queue.isHealthy()}`);
   console.log('');
 
-  // Message statistics
-  const statuses = ['queued', 'sent', 'delivered', 'failed'];
-  console.log('Message Statistics:');
+  // Message statistics — COUNT(*) per status, no rows transferred
+  const statuses: Array<import('./storage/models').MessageStatus> = [
+    'queued' as any, 'sent' as any, 'delivered' as any, 'failed' as any,
+  ];
+  console.log('Message counts (from database):');
   for (const status of statuses) {
-    const messages = await store.getMessagesByStatus(status as any, 1000);
-    console.log(`  ${status}: ${messages.length}`);
+    const count = await store.countByStatus(status);
+    console.log(`  ${status}: ${count}`);
   }
 }
 

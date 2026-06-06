@@ -336,4 +336,15 @@ export class MessageStore {
       return false;
     }
   }
+
+  /**
+   * Count messages by status — uses COUNT(*) so no rows are transferred
+   */
+  async countByStatus(status: MessageStatus): Promise<number> {
+    const result = await this.pool.query(
+      'SELECT COUNT(*)::integer AS count FROM messages WHERE status = $1',
+      [status]
+    );
+    return result.rows[0].count;
+  }
 }
